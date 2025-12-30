@@ -21,7 +21,15 @@
         </StackPanel>
 
         <!-- Canvas-ul unde vom desena și șterge -->
-        <Canvas x:Name="EditorCanvas" Grid.Row="1" Background="Gray" 
-                MouseDown="EditorCanvas_MouseDown" MouseMove="EditorCanvas_MouseMove"/>
+        <Grid Grid.Row="1" x:Name="ContainerGrid">
+            <!-- Imaginea PDF-ului va sta în spate -->
+            <Image x:Name="PdfDisplayImage" Stretch="None" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+
+            <!-- Stratul pentru radieră (cerneală albă) -->
+            <InkCanvas x:Name="EraserCanvas" 
+               Background="Transparent" 
+               EditingMode="None" 
+               HorizontalAlignment="Left" VerticalAlignment="Top"/>
+        </Grid>
     </Grid> 
 </Window>
