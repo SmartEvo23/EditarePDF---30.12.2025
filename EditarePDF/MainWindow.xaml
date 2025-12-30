@@ -5,8 +5,23 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:EditarePDF"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
+        Title="EditarePDF" Height="600" Width="800">
     <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <!-- Meniu/Butoane -->
+            <RowDefinition Height="*"/>
+            <!-- Zona de editare -->
+        </Grid.RowDefinitions>
 
-    </Grid>
+        <StackPanel Orientation="Horizontal" Background="#F0F0F0" Margin="10,0,10,0">
+            <Button Content="Deschide PDF" Click="OpenPdf_Click" Margin="5"/>
+            <Button Content="Radieră (Alb)" Click="Eraser_Click" Margin="5"/>
+            <Button Content="Convertire Word" Click="ConvertToWord_Click" Margin="5"/>
+        </StackPanel>
+
+        <!-- Canvas-ul unde vom desena și șterge -->
+        <Canvas x:Name="EditorCanvas" Grid.Row="1" Background="Gray" 
+                MouseDown="EditorCanvas_MouseDown" MouseMove="EditorCanvas_MouseMove"/>
+    </Grid> 
 </Window>
