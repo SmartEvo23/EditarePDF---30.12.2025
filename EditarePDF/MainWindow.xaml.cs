@@ -138,18 +138,15 @@ namespace EditarePDF
 
         private RenderTargetBitmap CreateCleanImage()
         {
-            // 1. Calculăm dimensiunile zonei pe care vrem să o salvăm
-            int width = (int)EraserCanvas.Width;
-            int height = (int)EraserCanvas.Height;
+            // Prefer the container grid size (or PdfDisplayImage if that’s your target)
+            int width = (int)Math.Round(ContainerGrid.ActualWidth);
+            int height = (int)Math.Round(ContainerGrid.ActualHeight);
 
-            // 2. Creăm un obiect bitmap care va "fotografia" interfața
-            // Folosim 96 DPI pentru ecran, dar Tesseract va procesa pixelii rezultați
-            RenderTargetBitmap renderBitmap = new RenderTargetBitmap(
-                width, height, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
+            if (width <= 0 || height <= 0)
+                throw new InvalidOperationException("Render area not ready. Ensure layout is complete before OCR.");
 
-            // 3. Randăm (desenăm) Grid-ul care conține și imaginea și radiera în acest bitmap
+            var renderBitmap = new RenderTargetBitmap(width, height, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
             renderBitmap.Render(ContainerGrid);
-
             return renderBitmap;
         }
 
@@ -170,11 +167,13 @@ namespace EditarePDF
             }
         }
 
-        private void PrepareForOcr_Click(object sender, RoutedEventArgs e)
+        private async void PrepareForOcr_Click(object sender, RoutedEventArgs e)
         {
-            RenderTargetBitmap cleanBitmapSource = CreateCleanImage();
+            // Give layout a chance to complete if needed
+            await Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.Loaded);
 
-            using (System.Drawing.Bitmap finalImage = BitmapSourceToBitmap(cleanBitmapSource))
+            var cleanBitmapSource = CreateCleanImage();
+            using (var finalImage = BitmapSourceToBitmap(cleanBitmapSource))
             {
                 string rezultatulText = ExtractTextFromImage(finalImage);
 

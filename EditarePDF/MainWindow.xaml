@@ -13,38 +13,84 @@
                 <TextBlock Text="EditarePDF" Foreground="White" FontSize="18" FontWeight="SemiBold" DockPanel.Dock="Left" VerticalAlignment="Center"/>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                     <StackPanel.Resources>
-                        <!-- Subtle shadow resource used by buttons -->
-                        <DropShadowEffect x:Key="BtnShadow" BlurRadius="8" ShadowDepth="1" Opacity="0.25" Color="#000000"/>
+                        <!-- Elevated shadow used by buttons -->
+                        <DropShadowEffect x:Key="BtnShadow" BlurRadius="15" ShadowDepth="2" Opacity="0.35" Color="#000000"/>
 
-                        <!-- Base button style -->
+                        <!-- Elegant button style with subtle gradient, hover glow and press feedback -->
                         <Style TargetType="Button">
-                            <Setter Property="Margin" Value="5"/>
-                            <Setter Property="Padding" Value="14,10"/>
-                            <Setter Property="Foreground" Value="White"/>
-                            <Setter Property="Background" Value="#4A5568"/>
-                            <Setter Property="BorderBrush" Value="Transparent"/>
+                            <Setter Property="Margin" Value="6"/>
+                            <Setter Property="Padding" Value="16,10"/>
+                            <Setter Property="Foreground" Value="#FFFFFF"/>
+                            <Setter Property="BorderThickness" Value="0"/>
                             <Setter Property="Cursor" Value="Hand"/>
                             <Setter Property="SnapsToDevicePixels" Value="True"/>
                             <Setter Property="FontSize" Value="16"/>
+                            <Setter Property="FontWeight" Value="SemiBold"/>
                             <Setter Property="Template">
                                 <Setter.Value>
                                     <ControlTemplate TargetType="Button">
-                                        <Border CornerRadius="8" Background="{TemplateBinding Background}" Effect="{StaticResource BtnShadow}">
-                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        </Border>
+                                        <Grid>
+                                            <!-- Base background with gradient -->
+                                            <Border x:Name="Bg" CornerRadius="10" Effect="{StaticResource BtnShadow}">
+                                                <Border.Background>
+                                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                                        <GradientStop Color="#55607A" Offset="0"/>
+                                                        <GradientStop Color="#414A61" Offset="1"/>
+                                                    </LinearGradientBrush>
+                                                </Border.Background>
+                                            </Border>
+
+                                            <!-- Soft highlight line at top -->
+                                            <Border CornerRadius="10" Opacity="0.18">
+                                                <Border.Background>
+                                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                                        <GradientStop Color="#FFFFFF" Offset="0"/>
+                                                        <GradientStop Color="#FFFFFF00" Offset="0.3"/>
+                                                    </LinearGradientBrush>
+                                                </Border.Background>
+                                            </Border>
+
+                                            <!-- Content -->
+                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="8,4"/>
+                                        </Grid>
+
                                         <ControlTemplate.Triggers>
+                                            <!-- Hover: lighten and add glow -->
                                             <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter Property="Background" Value="#5A677A"/>
+                                                <Setter TargetName="Bg" Property="Background">
+                                                    <Setter.Value>
+                                                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                                            <GradientStop Color="#637092" Offset="0"/>
+                                                            <GradientStop Color="#4B5672" Offset="1"/>
+                                                        </LinearGradientBrush>
+                                                    </Setter.Value>
+                                                </Setter>
+                                                <Setter TargetName="Bg" Property="Effect">
+                                                    <Setter.Value>
+                                                        <DropShadowEffect BlurRadius="18" ShadowDepth="2" Opacity="0.45" Color="#1E90FF"/>
+                                                    </Setter.Value>
+                                                </Setter>
                                             </Trigger>
+
+                                            <!-- Press: slight scale and deeper shade -->
                                             <Trigger Property="IsPressed" Value="True">
-                                                <Setter Property="Background" Value="#2C5282"/>
                                                 <Setter Property="RenderTransform">
                                                     <Setter.Value>
-                                                        <ScaleTransform ScaleX="0.98" ScaleY="0.98"/>
+                                                        <ScaleTransform ScaleX="0.97" ScaleY="0.97"/>
                                                     </Setter.Value>
                                                 </Setter>
                                                 <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
+                                                <Setter TargetName="Bg" Property="Background">
+                                                    <Setter.Value>
+                                                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                                            <GradientStop Color="#35405A" Offset="0"/>
+                                                            <GradientStop Color="#2C3449" Offset="1"/>
+                                                        </LinearGradientBrush>
+                                                    </Setter.Value>
+                                                </Setter>
                                             </Trigger>
+
+                                            <!-- Disabled -->
                                             <Trigger Property="IsEnabled" Value="False">
                                                 <Setter Property="Opacity" Value="0.6"/>
                                             </Trigger>
@@ -54,10 +100,70 @@
                             </Setter>
                         </Style>
 
-                        <!-- Accent style for primary actions -->
+                        <!-- Primary/accent button style -->
                         <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-                            <Setter Property="Background" Value="#2C7A7B"/>
-                            <Setter Property="FontSize" Value="16"/>
+                            <Setter Property="Foreground" Value="#FFFFFF"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="Button">
+                                        <Grid>
+                                            <Border x:Name="Bg" CornerRadius="10" Effect="{StaticResource BtnShadow}">
+                                                <Border.Background>
+                                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                                        <GradientStop Color="#2CB1B5" Offset="0"/>
+                                                        <GradientStop Color="#277F83" Offset="1"/>
+                                                    </LinearGradientBrush>
+                                                </Border.Background>
+                                            </Border>
+                                            <Border CornerRadius="10" Opacity="0.18">
+                                                <Border.Background>
+                                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                                        <GradientStop Color="#FFFFFF" Offset="0"/>
+                                                        <GradientStop Color="#FFFFFF00" Offset="0.3"/>
+                                                    </LinearGradientBrush>
+                                                </Border.Background>
+                                            </Border>
+                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="8,4"/>
+                                        </Grid>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Bg" Property="Background">
+                                                    <Setter.Value>
+                                                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                                            <GradientStop Color="#34C9CE" Offset="0"/>
+                                                            <GradientStop Color="#2B9599" Offset="1"/>
+                                                        </LinearGradientBrush>
+                                                    </Setter.Value>
+                                                </Setter>
+                                                <Setter TargetName="Bg" Property="Effect">
+                                                    <Setter.Value>
+                                                        <DropShadowEffect BlurRadius="18" ShadowDepth="2" Opacity="0.45" Color="#00D1D1"/>
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Trigger>
+                                            <Trigger Property="IsPressed" Value="True">
+                                                <Setter Property="RenderTransform">
+                                                    <Setter.Value>
+                                                        <ScaleTransform ScaleX="0.97" ScaleY="0.97"/>
+                                                    </Setter.Value>
+                                                </Setter>
+                                                <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
+                                                <Setter TargetName="Bg" Property="Background">
+                                                    <Setter.Value>
+                                                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                                            <GradientStop Color="#1E5D60" Offset="0"/>
+                                                            <GradientStop Color="#184A4D" Offset="1"/>
+                                                        </LinearGradientBrush>
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Trigger>
+                                            <Trigger Property="IsEnabled" Value="False">
+                                                <Setter Property="Opacity" Value="0.6"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
                         </Style>
                     </StackPanel.Resources>
                     <Button Content="Deschide PDF" Click="OpenPdf_Click"/>
