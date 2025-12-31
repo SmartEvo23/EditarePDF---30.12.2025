@@ -16,6 +16,8 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Presentation;
 using System.Collections.ObjectModel;
+using PdfSharp.Drawing;
+using PdfSharp.Pdf;
 
 namespace EditarePDF
 {
@@ -35,7 +37,7 @@ namespace EditarePDF
         }
 
         private readonly ObservableCollection<PdfPageItem> _pages = new ObservableCollection<PdfPageItem>();
-        private PdfDocument? _loadedDocument;
+        private PdfiumViewer.PdfDocument? _loadedDocument;
 
         public MainWindow()
         {
@@ -52,7 +54,7 @@ namespace EditarePDF
             {
                 // 1. Încărcăm documentul PDF offline
                 _loadedDocument?.Dispose();
-                _loadedDocument = PdfDocument.Load(openFileDialog.FileName);
+                _loadedDocument = PdfiumViewer.PdfDocument.Load(openFileDialog.FileName);
 
                 _pages.Clear();
 
@@ -175,9 +177,9 @@ namespace EditarePDF
             var cleanBitmapSource = CreateCleanImage();
             using (var finalImage = BitmapSourceToBitmap(cleanBitmapSource))
             {
-                string rezultatulText = ExtractTextFromImage(finalImage);
+                string rezultatText = ExtractTextFromImage(finalImage);
 
-                if (!string.IsNullOrEmpty(rezultatulText))
+                if (!string.IsNullOrEmpty(rezultatText))
                 {
                     SaveFileDialog saveDialog = new SaveFileDialog();
                     saveDialog.Filter = "Word Document (*.docx)|*.docx";
@@ -185,12 +187,12 @@ namespace EditarePDF
 
                     if (saveDialog.ShowDialog() == true)
                     {
-                        ExportToWord(rezultatulText, saveDialog.FileName);
+                        ExportToWord(rezultatText, saveDialog.FileName);
                         MessageBox.Show("Exportul în Word a fost finalizat cu succes!");
                     }
                 }
 
-                ultimulTextExtras = ExtractTextFromImage(finalImage);
+                ultimulTextExtras = rezultatText;
                 if (!string.IsNullOrEmpty(ultimulTextExtras))
                 {
                     MessageBox.Show("Textul a fost extras și este gata pentru export!");
@@ -476,6 +478,79 @@ namespace EditarePDF
                 int pageIndex = item.PageNumber - 1;
                 DisplayPage(pageIndex);
             }
+        }
+
+        private RenderTargetBitmap CreatePageComposite()
+        {
+            if (PdfDisplayImage.Source is not BitmapSource pageBmp)
+                throw new InvalidOperationException("No page loaded.");
+
+            int width = pageBmp.PixelWidth;
+            int height = pageBmp.PixelHeight;
+
+            // Ensure both Image and InkCanvas are laid out to the same pixel size
+            PdfDisplayImage.Width = width;
+            PdfDisplayImage.Height = height;
+            EraserCanvas.Width = width;
+            EraserCanvas.Height = height;
+
+            // Arrange a temporary grid to render exactly the page + strokes
+            var grid = new Grid { Width = width, Height = height };
+            var img = new Image { Source = pageBmp, Stretch = Stretch.None, Width = width, Height = height };
+            var ink = new InkCanvas { Background = Brushes.Transparent, Width = width, Height = height };
+            // Copy existing strokes
+            foreach (var s in EraserCanvas.Strokes)
+                ink.Strokes.Add(s.Clone());
+
+            grid.Children.Add(img);
+            grid.Children.Add(ink);
+
+            // Measure/arrange before render
+            grid.Measure(new Size(width, height));
+            grid.Arrange(new System.Windows.Rect(0, 0, width, height));
+            grid.UpdateLayout();
+
+            var rtb = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
+            rtb.Render(grid);
+            return rtb;
+        }
+
+        private void ExportErasedPageToWord(string filePath)
+        {
+            var composite = CreatePageComposite();
+            var encoder = new PngBitmapEncoder();
+            encoder.Frames.Add(BitmapFrame.Create(composite));
+            using var ms = new MemoryStream();
+            encoder.Save(ms);
+
+            var doc = new XWPFDocument();
+            var p = doc.CreateParagraph();
+            var run = p.CreateRun();
+            ms.Position = 0;
+            run.AddPicture(ms, (int)NPOI.XWPF.UserModel.PictureType.PNG, "page.png", 600 * 9525, 800 * 9525); // adjust size
+            using var fs = new FileStream(filePath, FileMode.Create);
+            doc.Write(fs);
+        }
+
+        private void ExportErasedPageToPdf(string filePath)
+        {
+            var composite = CreatePageComposite();
+            // Convert WPF BitmapSource to a System.Drawing.Bitmap first
+            using var bmp = BitmapSourceToBitmap(composite);
+
+            using var doc = new PdfSharp.Pdf.PdfDocument();
+            var page = doc.AddPage();
+            page.Width = XUnit.FromPoint(bmp.Width);
+            page.Height = XUnit.FromPoint(bmp.Height);
+
+            using var gfx = XGraphics.FromPdfPage(page);
+            using var stream = new MemoryStream();
+            bmp.Save(stream, System.Drawing.Imaging.ImageFormat.Png);
+            stream.Position = 0;
+            var img = XImage.FromStream(stream);
+            gfx.DrawImage(img, 0, 0, page.Width.Point, page.Height.Point);
+
+            doc.Save(filePath);
         }
     }
 }
