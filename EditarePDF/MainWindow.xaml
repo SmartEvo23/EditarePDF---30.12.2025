@@ -82,25 +82,26 @@
             <Border Grid.Column="0" Background="#EDF2F7" BorderBrush="#E2E8F0" BorderThickness="0,1,1,0">
                 <DockPanel>
                     <TextBlock Text="Pagini:" FontWeight="SemiBold" Foreground="#2D3748" Padding="12" DockPanel.Dock="Top"/>
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
-                        <!-- Changed ItemsControl to ListBox to enable selection -->
-                        <ListBox x:Name="PagesList" SelectionChanged="PagesList_SelectionChanged">
-                            <ListBox.ItemTemplate>
-                                <DataTemplate>
-                                    <StackPanel Margin="10" Orientation="Vertical">
-                                        <Border Padding="6" Background="#E3E3E3" BorderBrush="#CBD5E0" BorderThickness="1" CornerRadius="6">
-                                            <Image Source="{Binding Thumbnail}" Stretch="Uniform" Width="240"/>
-                                        </Border>
-                                        <TextBlock Text="{Binding PageNumber, StringFormat=Pagina {0}}"
-                                                   Foreground="#4A5568"
-                                                   FontSize="12"
-                                                   HorizontalAlignment="Center"
-                                                   Margin="0,6,0,0"/>
-                                    </StackPanel>
-                                </DataTemplate>
-                            </ListBox.ItemTemplate>
-                        </ListBox>
-                    </ScrollViewer>
+                    <!-- Let ListBox manage its own scrolling and mouse wheel -->
+                    <ListBox x:Name="PagesList"
+                             SelectionChanged="PagesList_SelectionChanged"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto"
+                             ScrollViewer.CanContentScroll="True">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Margin="10" Orientation="Vertical">
+                                    <Border Padding="6" Background="#E3E3E3" BorderBrush="#CBD5E0" BorderThickness="1" CornerRadius="6">
+                                        <Image Source="{Binding Thumbnail}" Stretch="Uniform" Width="240"/>
+                                    </Border>
+                                    <TextBlock Text="{Binding PageNumber, StringFormat=Pagina {0}}"
+                                               Foreground="#4A5568"
+                                               FontSize="12"
+                                               HorizontalAlignment="Center"
+                                               Margin="0,6,0,0"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
                 </DockPanel>
             </Border>
 
