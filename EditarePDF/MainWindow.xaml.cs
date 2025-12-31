@@ -18,6 +18,11 @@ using DocumentFormat.OpenXml.Presentation;
 using System.Collections.ObjectModel;
 using PdfSharp.Drawing;
 using PdfSharp.Pdf;
+using System;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 
 namespace EditarePDF
 {
@@ -39,10 +44,29 @@ namespace EditarePDF
         private readonly ObservableCollection<PdfPageItem> _pages = new ObservableCollection<PdfPageItem>();
         private PdfiumViewer.PdfDocument? _loadedDocument;
 
+        // Add this field to your MainWindow class if it doesn't exist
+        private TextBox ExtractedTextBox;
+
+        // Keep track of 1:1 scale based on DPI
+        private double _actualScale = 1.0;
+
+        // Add field to track current page
+        private int _currentPageIndex = -1;
+
         public MainWindow()
         {
             InitializeComponent();
             PagesList.ItemsSource = _pages;
+            ExtractedTextBox = (TextBox)this.FindName("ExtractedTextBox");
+            Loaded += MainWindow_Loaded;
+        }
+
+        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            // Default to 100%
+            SetZoom(1.0);
+            SelectZoomComboItemByScale(1.0);
+            UpdatePageSizeStatus();
         }
 
         private void OpenPdf_Click(object sender, RoutedEventArgs e)
@@ -138,6 +162,55 @@ namespace EditarePDF
             // TODO: Add your mouse move logic here
         }
 
+        private System.Drawing.Bitmap BitmapSourceToBitmap(BitmapSource srs)
+        {
+            // Ensure a supported pixel format for GDI+ and Tesseract (32bpp ARGB, not PArgb)
+            var converted = srs.Format == PixelFormats.Bgra32
+                ? srs
+                : new FormatConvertedBitmap(srs, PixelFormats.Bgra32, null, 0);
+
+            int width = converted.PixelWidth;
+            int height = converted.PixelHeight;
+            int stride = width * 4; // BGRA32
+
+            IntPtr ptr = System.Runtime.InteropServices.Marshal.AllocHGlobal(height * stride);
+            try
+            {
+                converted.CopyPixels(new System.Windows.Int32Rect(0, 0, width, height), ptr, height * stride, stride);
+
+                using (var bmap = new System.Drawing.Bitmap(
+                           width, height, stride,
+                           System.Drawing.Imaging.PixelFormat.Format32bppArgb, ptr)) // <- Use Argb, not PArgb
+                {
+                    // Copy to a managed bitmap that owns its memory
+                    return new System.Drawing.Bitmap(bmap);
+                }
+            }
+            finally
+            {
+                System.Runtime.InteropServices.Marshal.FreeHGlobal(ptr);
+            }
+        }
+        private void ProcessOcr_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // 1. Creăm o imagine curată a zonei de randare
+                RenderTargetBitmap cleanBitmapSource = CreateCleanImage();
+                // 2. Convertim RenderTargetBitmap în System.Drawing.Bitmap
+                using System.Drawing.Bitmap cleanBitmap = BitmapSourceToBitmap(cleanBitmapSource);
+                // 3. Extragem textul folosind Tesseract OCR
+                string extractedText = ExtractTextFromImage(cleanBitmap);
+                // 4. Afișăm textul extras în TextBox-ul din UI
+                    ExtractedTextBox.Text = extractedText;
+                // 5. Salvăm textul extras pentru utilizare ulterioară
+                ultimulTextExtras = extractedText;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Eroare la procesarea OCR: " + ex.Message);
+            }
+        }
         private RenderTargetBitmap CreateCleanImage()
         {
             // Prefer the container grid size (or PdfDisplayImage if that’s your target)
@@ -145,59 +218,11 @@ namespace EditarePDF
             int height = (int)Math.Round(ContainerGrid.ActualHeight);
 
             if (width <= 0 || height <= 0)
-                throw new InvalidOperationException("Render area not ready. Ensure layout is complete before OCR.");
+                throw new InvalidOperationException("Zona de randare nu este pregătită. Asigurați-vă că o pagină PDF este selectată și afișată.");
 
             var renderBitmap = new RenderTargetBitmap(width, height, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
             renderBitmap.Render(ContainerGrid);
             return renderBitmap;
-        }
-
-        private System.Drawing.Bitmap BitmapSourceToBitmap(BitmapSource srs)
-        {
-            int width = srs.PixelWidth;
-            int height = srs.PixelHeight;
-            int stride = width * ((srs.Format.BitsPerPixel + 7) / 8);
-            IntPtr ptr = System.Runtime.InteropServices.Marshal.AllocHGlobal(height * stride);
-
-            srs.CopyPixels(new System.Windows.Int32Rect(0, 0, width, height), ptr, height * stride, stride);
-
-            using (var bmap = new System.Drawing.Bitmap(width, height, stride,
-                   System.Drawing.Imaging.PixelFormat.Format32bppPArgb, ptr))
-            {
-                // Creăm o copie pentru a elibera memoria pointer-ului immediat
-                return new System.Drawing.Bitmap(bmap);
-            }
-        }
-
-        private async void PrepareForOcr_Click(object sender, RoutedEventArgs e)
-        {
-            // Give layout a chance to complete if needed
-            await Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.Loaded);
-
-            var cleanBitmapSource = CreateCleanImage();
-            using (var finalImage = BitmapSourceToBitmap(cleanBitmapSource))
-            {
-                string rezultatText = ExtractTextFromImage(finalImage);
-
-                if (!string.IsNullOrEmpty(rezultatText))
-                {
-                    SaveFileDialog saveDialog = new SaveFileDialog();
-                    saveDialog.Filter = "Word Document (*.docx)|*.docx";
-                    saveDialog.FileName = "Document_Convertit.docx";
-
-                    if (saveDialog.ShowDialog() == true)
-                    {
-                        ExportToWord(rezultatText, saveDialog.FileName);
-                        MessageBox.Show("Exportul în Word a fost finalizat cu succes!");
-                    }
-                }
-
-                ultimulTextExtras = rezultatText;
-                if (!string.IsNullOrEmpty(ultimulTextExtras))
-                {
-                    MessageBox.Show("Textul a fost extras și este gata pentru export!");
-                }
-            }
         }
 
         public string ExtractTextFromImage(System.Drawing.Bitmap cleanImage)
@@ -453,19 +478,42 @@ namespace EditarePDF
         // Centralized display logic to render selected page and sync InkCanvas
         private void DisplayPage(int pageIndex)
         {
-            if (_loadedDocument == null || pageIndex < 0 || pageIndex >= _loadedDocument.PageCount)
-                return;
+            _currentPageIndex = pageIndex;
+            RenderAndDisplayPage(pageIndex);
+        }
 
-            using (var img = _loadedDocument.Render(pageIndex, 200, 200, true))
+        private void ReRenderCurrentPage()
+        {
+            if (_loadedDocument == null || _currentPageIndex < 0) return;
+            RenderAndDisplayPage(_currentPageIndex);
+        }
+
+        // Render at DPI that matches current zoom for crisp display
+        private void RenderAndDisplayPage(int pageIndex)
+        {
+            if (_loadedDocument == null || pageIndex < 0 || pageIndex >= _loadedDocument.PageCount) return;
+
+            // Base DPI for good quality; scale with current zoom
+            double baseDpi = 150; // change to 300 for very high quality
+            double scale = ZoomTransform.ScaleX <= 0 ? 1.0 : ZoomTransform.ScaleX;
+            int dpiX = (int)Math.Round(baseDpi * scale);
+            int dpiY = (int)Math.Round(baseDpi * scale);
+
+            using (var img = _loadedDocument.Render(pageIndex, dpiX, dpiY, true))
             {
                 var bmp = ImageToBitmapSource(img);
+
+                // Ensure best scaling quality in WPF
+                RenderOptions.SetBitmapScalingMode(PdfDisplayImage, BitmapScalingMode.HighQuality);
                 PdfDisplayImage.Source = bmp;
 
-                // Sync canvas size with displayed page
+                // Match InkCanvas to image pixel size
                 EraserCanvas.Width = bmp.Width;
                 EraserCanvas.Height = bmp.Height;
-                EraserCanvas.Strokes.Clear();
+                // EraserCanvas.Strokes.Freeze(); // minor perf improvement for static strokes
             }
+
+            UpdatePageSizeStatus();
         }
 
         // Handle selection change in the ListBox
@@ -551,6 +599,367 @@ namespace EditarePDF
             gfx.DrawImage(img, 0, 0, page.Width.Point, page.Height.Point);
 
             doc.Save(filePath);
+        }
+
+        // Add a unified Save As handler that performs OCR (if needed) and exports accordingly.
+        private async void SaveAs_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // Ensure a page is loaded
+                if (PdfDisplayImage.Source is not BitmapSource)
+                {
+                    MessageBox.Show("Nici o pagină PDF nu este încărcată sau afișată.");
+                    return;
+                }
+
+                // Render the composite (page + eraser strokes)
+                var composite = CreatePageComposite();
+
+                // Run OCR if we don't already have text (FineReader-style: process before save)
+                if (string.IsNullOrWhiteSpace(ultimulTextExtras))
+                {
+                    await Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.Loaded);
+                    using (var finalImage = BitmapSourceToBitmap(composite))
+                    {
+                        // NOTE: fix Tesseract setup per earlier guidance if this crashes.
+                        var text = ExtractTextFromImage(finalImage);
+                        ultimulTextExtras = text;
+                    }
+                }
+
+                // Unified Save As dialog, user picks output format in filter
+                var saveDialog = new SaveFileDialog
+                {
+                    Title = "Save As",
+                    FileName = "Document",
+                    Filter =
+                        "Searchable PDF (*.pdf)|*.pdf|" +
+                        "Word Document (*.docx)|*.docx|" +
+                        "Excel Workbook (*.xlsx)|*.xlsx|" +
+                        "PowerPoint Presentation (*.pptx)|*.pptx|" +
+                        "PNG Image (*.png)|*.png|" +
+                        "JPEG Image (*.jpg;*.jpeg)|*.jpg;*.jpeg"
+                };
+
+                if (saveDialog.ShowDialog() != true)
+                    return;
+
+                var ext = System.IO.Path.GetExtension(saveDialog.FileName).ToLowerInvariant();
+                switch (ext)
+                {
+                    case ".pdf":
+                        // Export the erased page image to PDF (baseline). Optionally add a text layer later.
+                        ExportErasedPageToPdf(saveDialog.FileName);
+                        MessageBox.Show("PDF salvat!");
+                        break;
+
+                    case ".docx":
+                        ExportToWord(ultimulTextExtras, saveDialog.FileName);
+                        MessageBox.Show("Fișierul Word a fost salvat!");
+                        break;
+
+                    case ".xlsx":
+                        ExportToExcel(ultimulTextExtras, saveDialog.FileName);
+                        MessageBox.Show("Fișierul Excel a fost salvat!");
+                        break;
+
+                    case ".pptx":
+                        ExportToPowerPoint(ultimulTextExtras, saveDialog.FileName);
+                        MessageBox.Show("Prezentarea PowerPoint a fost salvată!");
+                        break;
+
+                    case ".png":
+                    case ".jpg":
+                    case ".jpeg":
+                    {
+                        BitmapEncoder encoder = ext is ".jpg" or ".jpeg"
+                            ? new JpegBitmapEncoder()
+                            : new PngBitmapEncoder();
+
+                        encoder.Frames.Add(BitmapFrame.Create(composite));
+                        using var fs = new FileStream(saveDialog.FileName, FileMode.Create);
+                        encoder.Save(fs);
+                        MessageBox.Show("Imaginea a fost salvată!");
+                        break;
+                    }
+
+                    default:
+                        MessageBox.Show("Format de fișier neacceptat.");
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Eroare la 'Save As': " + ex.Message);
+            }
+        }
+
+        // Show the context menu directly under the button when clicked
+        private void SaveMenuButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.ContextMenu is ContextMenu cm)
+            {
+                cm.PlacementTarget = btn;
+                cm.IsOpen = true;
+            }
+        }
+
+        // Each format prompts for a location using SaveFileDialog
+        private void SaveAsPdf_Click(object sender, RoutedEventArgs e)
+        {
+            var sfd = new SaveFileDialog
+            {
+                Title = "Save As PDF",
+                Filter = "Searchable PDF (*.pdf)|*.pdf",
+                FileName = "Document.pdf"
+            };
+            if (sfd.ShowDialog() == true)
+            {
+                ExportErasedPageToPdf(sfd.FileName);
+                MessageBox.Show("PDF salvat!");
+            }
+        }
+
+        private void SaveAsDocx_Click(object sender, RoutedEventArgs e)
+        {
+            EnsureOcrText();
+            var sfd = new SaveFileDialog
+            {
+                Title = "Save As Word",
+                Filter = "Word Document (*.docx)|*.docx",
+                FileName = "Document_Convertit.docx"
+            };
+            if (sfd.ShowDialog() == true)
+            {
+                ExportToWord(ultimulTextExtras, sfd.FileName);
+                MessageBox.Show("Fișierul Word a fost salvat!");
+            }
+        }
+
+        private void SaveAsXlsx_Click(object sender, RoutedEventArgs e)
+        {
+            EnsureOcrText();
+            var sfd = new SaveFileDialog
+            {
+                Title = "Save As Excel",
+                Filter = "Excel Workbook (*.xlsx)|*.xlsx",
+                FileName = "Tabel_Document.xlsx"
+            };
+            if (sfd.ShowDialog() == true)
+            {
+                ExportToExcel(ultimulTextExtras, sfd.FileName);
+                MessageBox.Show("Fișierul Excel a fost salvat!");
+            }
+        }
+
+        private void SaveAsPptx_Click(object sender, RoutedEventArgs e)
+        {
+            EnsureOcrText();
+            var sfd = new SaveFileDialog
+            {
+                Title = "Save As PowerPoint",
+                Filter = "PowerPoint Presentation (*.pptx)|*.pptx",
+                FileName = "Prezentare_Document.pptx"
+            };
+            if (sfd.ShowDialog() == true)
+            {
+                ExportToPowerPoint(ultimulTextExtras, sfd.FileName);
+                MessageBox.Show("Prezentarea PowerPoint a fost salvată!");
+            }
+        }
+
+        private void SaveAsPng_Click(object sender, RoutedEventArgs e)
+        {
+            var composite = CreatePageComposite();
+            var sfd = new SaveFileDialog
+            {
+                Title = "Save As PNG",
+                Filter = "PNG Image (*.png)|*.png",
+                FileName = "Document_Imagine.png"
+            };
+            if (sfd.ShowDialog() == true)
+            {
+                var encoder = new PngBitmapEncoder();
+                encoder.Frames.Add(BitmapFrame.Create(composite));
+                using var fs = new FileStream(sfd.FileName, FileMode.Create);
+                encoder.Save(fs);
+                MessageBox.Show("Imaginea a fost salvată!");
+            }
+        }
+
+        private void SaveAsJpeg_Click(object sender, RoutedEventArgs e)
+        {
+            var composite = CreatePageComposite();
+            var sfd = new SaveFileDialog
+            {
+                Title = "Save As JPEG",
+                Filter = "JPEG Image (*.jpg;*.jpeg)|*.jpg;*.jpeg",
+                FileName = "Document_Imagine.jpg"
+            };
+            if (sfd.ShowDialog() == true)
+            {
+                var encoder = new JpegBitmapEncoder();
+                encoder.Frames.Add(BitmapFrame.Create(composite));
+                using var fs = new FileStream(sfd.FileName, FileMode.Create);
+                encoder.Save(fs);
+                MessageBox.Show("Imaginea a fost salvată!");
+            }
+        }
+
+        // Ensure OCR text exists before exporting text formats
+        private void EnsureOcrText()
+        {
+            if (string.IsNullOrWhiteSpace(ultimulTextExtras))
+            {
+                var composite = CreatePageComposite();
+                using var finalImage = BitmapSourceToBitmap(composite);
+                ultimulTextExtras = ExtractTextFromImage(finalImage);
+                if (ExtractedTextBox != null)
+                    ExtractedTextBox.Text = ultimulTextExtras;
+            }
+        }
+
+        // Call this after loading a PDF page image into PdfDisplayImage.Source
+        private void OnPdfImageChanged()
+        {
+            // Ensure InkCanvas matches the image pixel size for 1:1 alignment
+            if (PdfDisplayImage.Source is BitmapSource bmp)
+            {
+                // Physical pixel dimensions
+                EraserCanvas.Width = bmp.PixelWidth;
+                EraserCanvas.Height = bmp.PixelHeight;
+
+                // Compute 1:1 scale based on image DPI vs 96 WPF units
+                var dpiX = bmp.DpiX > 0 ? bmp.DpiX : 96.0;
+                var dpiY = bmp.DpiY > 0 ? bmp.DpiY : 96.0;
+
+                // WPF device-independent units: 1 unit = 1/96 inch.
+                // To display physical pixels 1:1, scale DIU to pixel ratio.
+                var scaleX = dpiX / 96.0;
+                var scaleY = dpiY / 96.0;
+
+                // Use uniform scale (usually equal)
+                _actualScale = Math.Max(scaleX, scaleY);
+                SetZoom(_actualScale);
+                SelectZoomComboItemByScale(1.0); // Show 100% as logical zoom; actual is accounted in baseline
+                UpdatePageSizeStatus();
+            }
+        }
+
+        private void SetZoom(double scale)
+        {
+            ZoomTransform.ScaleX = scale;
+            ZoomTransform.ScaleY = scale;
+            ReRenderCurrentPage();
+            UpdatePageSizeStatus();
+        }
+
+        private void SelectZoomComboItemByScale(double scale)
+        {
+            // Tries to select the closest preset
+            double[] presets = { 0.5, 0.75, 1.0, 1.25, 1.5, 2.0 };
+            double closest = 1.0;
+            double minDiff = double.MaxValue;
+            foreach (var p in presets)
+            {
+                var d = Math.Abs(p - scale);
+                if (d < minDiff)
+                {
+                    minDiff = d;
+                    closest = p;
+                }
+            }
+
+            foreach (var item in ZoomCombo.Items)
+            {
+                if (item is ComboBoxItem cbi && double.TryParse(cbi.Tag?.ToString(), out var tagScale))
+                {
+                    if (Math.Abs(tagScale - closest) < 0.0001)
+                    {
+                        ZoomCombo.SelectedItem = cbi;
+                        break;
+                    }
+                }
+            }
+        }
+
+        private void ZoomCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (ZoomCombo.SelectedItem is ComboBoxItem cbi &&
+                double.TryParse(cbi.Tag?.ToString(), out var requestedScale))
+            {
+                SetZoom(requestedScale);
+            }
+        }
+
+        private void ActualSize_Click(object sender, RoutedEventArgs e)
+        {
+            // Restore true 1:1 pixel display based on image DPI baseline
+            SetZoom(_actualScale);
+            UpdatePageSizeStatus();
+        }
+
+        private void UpdatePageSizeStatus()
+        {
+            // Show percentage and page size info
+            double percent = ZoomTransform.ScaleX * 100.0;
+            string sizeText = "";
+
+            if (PdfDisplayImage.Source is BitmapSource bmp)
+            {
+                var pxW = bmp.PixelWidth;
+                var pxH = bmp.PixelHeight;
+                var dpiX = bmp.DpiX > 0 ? bmp.DpiX : 96.0;
+                var dpiY = bmp.DpiY > 0 ? bmp.DpiY : 96.0;
+
+                // Physical size in inches
+                double inchesW = pxW / dpiX;
+                double inchesH = pxH / dpiY;
+
+                // Convert to millimeters for readability
+                double mmW = inchesW * 25.4;
+                double mmH = inchesH * 25.4;
+
+                sizeText = $" | Page: {pxW}×{pxH}px ({mmW:F1}×{mmH:F1} mm @ {dpiX:F0}×{dpiY:F0} DPI)";
+            }
+
+            PageSizeText.Text = $"{percent:F0}%{sizeText}";
+        }
+
+        // Example: wherever you set the PDF page as an image source
+        private void SetPdfPageImage(BitmapSource bitmap)
+        {
+            PdfDisplayImage.Source = bitmap;
+
+            // Ensure the Image control uses pixel-aligned presentation
+            RenderOptions.SetBitmapScalingMode(PdfDisplayImage, BitmapScalingMode.NearestNeighbor);
+            OnPdfImageChanged();
+        }
+
+        private void FitToWidth_Click(object sender, RoutedEventArgs e)
+        {
+            if (PdfDisplayImage.Source is BitmapSource bmp && ContainerGrid.ActualWidth > 0)
+            {
+                // Compute scale so the page width fits the container width
+                double containerWidth = ContainerGrid.ActualWidth;
+                double scale = containerWidth / bmp.PixelWidth;
+                SetZoom(scale);
+                UpdatePageSizeStatus();
+            }
+        }
+
+        private void BestFit_Click(object sender, RoutedEventArgs e)
+        {
+            if (PdfDisplayImage.Source is BitmapSource bmp && ContainerGrid.ActualWidth > 0 && ContainerGrid.ActualHeight > 0)
+            {
+                // Compute scale so the page fits both width and height (uniform)
+                double scaleX = ContainerGrid.ActualWidth / bmp.PixelWidth;
+                double scaleY = ContainerGrid.ActualHeight / bmp.PixelHeight;
+                double scale = Math.Min(scaleX, scaleY);
+                SetZoom(scale);
+                UpdatePageSizeStatus();
+            }
         }
     }
 }

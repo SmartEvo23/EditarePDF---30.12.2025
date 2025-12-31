@@ -157,9 +157,9 @@
                                                     </Setter.Value>
                                                 </Setter>
                                             </Trigger>
-                                            <Trigger Property="IsEnabled" Value="False">
+                                            <Setter Property="IsEnabled" Value="False">
                                                 <Setter Property="Opacity" Value="0.6"/>
-                                            </Trigger>
+                                            </Setter>
                                         </ControlTemplate.Triggers>
                                     </ControlTemplate>
                                 </Setter.Value>
@@ -168,11 +168,20 @@
                     </StackPanel.Resources>
                     <Button Content="Deschide PDF" Click="OpenPdf_Click"/>
                     <Button Content="Radieră (Alb)" Click="Eraser_Click"/>
-                    <Button Content="Procesează OCR" Click="PrepareForOcr_Click" Style="{StaticResource PrimaryButton}"/>
-                    <Button Content="Export Word" Click="ExportToWord_Click"/>
-                    <Button Content="Export Excel" Click="ExportToExcel_Click"/>
-                    <Button Content="Export PowerPoint" Click="ExportToPowerPoint_Click"/>
-                    <Button Content="Export Imagine" Click="ExportToImage_Click"/>
+                    <Button Content="Salvare ca..." Click="SaveMenuButton_Click">
+                        <Button.ContextMenu>
+                            <ContextMenu Placement="Bottom">
+                                <MenuItem Header="PDF (*.pdf)" Click="SaveAsPdf_Click"/>
+                                <MenuItem Header="Word (*.docx)" Click="SaveAsDocx_Click"/>
+                                <MenuItem Header="Excel (*.xlsx)" Click="SaveAsXlsx_Click"/>
+                                <MenuItem Header="PowerPoint (*.pptx)" Click="SaveAsPptx_Click"/>
+                                <Separator/>
+                                <MenuItem Header="PNG (*.png)" Click="SaveAsPng_Click"/>
+                                <MenuItem Header="JPEG (*.jpg;*.jpeg)" Click="SaveAsJpeg_Click"/>
+                            </ContextMenu>
+                        </Button.ContextMenu>
+                    </Button>
+
                 </StackPanel>
             </DockPanel>
         </Border>
@@ -211,14 +220,66 @@
                 </DockPanel>
             </Border>
 
-            <!-- Editor Surface -->
+            <!-- Editor Surface with Zoom + Status Bar -->
             <Border Grid.Column="1" Margin="10" Background="#F5F5F5" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8">
-                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-                    <Grid x:Name="ContainerGrid" Margin="10">
-                        <Image x:Name="PdfDisplayImage" Stretch="None" HorizontalAlignment="Left" VerticalAlignment="Top"/>
-                        <InkCanvas x:Name="EraserCanvas" Background="Transparent" EditingMode="None" HorizontalAlignment="Left" VerticalAlignment="Top"/>
-                    </Grid>
-                </ScrollViewer>
+                <DockPanel>
+                    <!-- Bottom Status Bar inside the editor surface -->
+                    <StatusBar DockPanel.Dock="Bottom" Background="#EDF2F7" BorderBrush="#E2E8F0" BorderThickness="1,1,0,0">
+                        <StatusBarItem>
+                            <TextBlock Text="Zoom:" Margin="6,0"/>
+                        </StatusBarItem>
+                        <StatusBarItem>
+                            <ComboBox x:Name="ZoomCombo"
+                                      Width="100"
+                                      SelectedValuePath="Tag"
+                                      SelectionChanged="ZoomCombo_SelectionChanged">
+                                <ComboBoxItem Content="50%" Tag="0.5"/>
+                                <ComboBoxItem Content="75%" Tag="0.75"/>
+                                <ComboBoxItem Content="100%" Tag="1"/>
+                                <ComboBoxItem Content="125%" Tag="1.25"/>
+                                <ComboBoxItem Content="150%" Tag="1.5"/>
+                                <ComboBoxItem Content="200%" Tag="2"/>
+                            </ComboBox>
+                        </StatusBarItem>
+                        <StatusBarItem>
+                            <Button Content="Actual size 1:1" Click="ActualSize_Click"/>
+                        </StatusBarItem>
+                        <StatusBarItem>
+                            <Button Content="Fit to width" Click="FitToWidth_Click"/>
+                        </StatusBarItem>
+                        <StatusBarItem>
+                            <Button Content="Best fit" Click="BestFit_Click"/>
+                        </StatusBarItem>
+                        <StatusBarItem>
+                            <TextBlock x:Name="PageSizeText" Margin="12,0,0,0"/>
+                        </StatusBarItem>
+                    </StatusBar>
+
+                    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                        <!-- Shared transform ensures Pdf + InkCanvas scale together -->
+                        <Grid x:Name="ContainerGrid" Margin="10">
+                            <Grid.RenderTransform>
+                                <ScaleTransform x:Name="ZoomTransform" ScaleX="1" ScaleY="1"/>
+                            </Grid.RenderTransform>
+
+                            <!-- Center the PDF image -->
+                            <Image x:Name="PdfDisplayImage"
+                                   Stretch="None"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"/>
+
+                            <!-- Center the InkCanvas and match the image size -->
+                            <InkCanvas x:Name="EraserCanvas"
+                                       Background="Transparent"
+                                       EditingMode="None"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       IsHitTestVisible="True"
+                                       Width="{Binding ElementName=PdfDisplayImage, Path=ActualWidth}"
+                                       Height="{Binding ElementName=PdfDisplayImage, Path=ActualHeight}"/>
+                        </Grid>
+                    </ScrollViewer>
+                </DockPanel>
             </Border>
         </Grid>
     </DockPanel>
