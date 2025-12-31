@@ -83,8 +83,9 @@
                 <DockPanel>
                     <TextBlock Text="Pagini:" FontWeight="SemiBold" Foreground="#2D3748" Padding="12" DockPanel.Dock="Top"/>
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
-                        <ItemsControl x:Name="PagesList">
-                            <ItemsControl.ItemTemplate>
+                        <!-- Changed ItemsControl to ListBox to enable selection -->
+                        <ListBox x:Name="PagesList" SelectionChanged="PagesList_SelectionChanged">
+                            <ListBox.ItemTemplate>
                                 <DataTemplate>
                                     <StackPanel Margin="10" Orientation="Vertical">
                                         <Border Padding="6" Background="#E3E3E3" BorderBrush="#CBD5E0" BorderThickness="1" CornerRadius="6">
@@ -97,8 +98,8 @@
                                                    Margin="0,6,0,0"/>
                                     </StackPanel>
                                 </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
                     </ScrollViewer>
                 </DockPanel>
             </Border>
