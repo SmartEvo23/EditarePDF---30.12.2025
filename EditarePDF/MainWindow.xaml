@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:EditarePDF"
+        xmlns:sf="clr-namespace:Syncfusion.Windows.PdfViewer;assembly=Syncfusion.PdfViewer.WPF"
         mc:Ignorable="d"
         Title="EditarePDF" Height="700" Width="1100" Background="#FAFAFA">
     <DockPanel>
@@ -13,10 +14,7 @@
                 <TextBlock Text="EditarePDF" Foreground="White" FontSize="18" FontWeight="SemiBold" DockPanel.Dock="Left" VerticalAlignment="Center"/>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                     <StackPanel.Resources>
-                        <!-- Elevated shadow used by buttons -->
                         <DropShadowEffect x:Key="BtnShadow" BlurRadius="15" ShadowDepth="2" Opacity="0.35" Color="#000000"/>
-
-                        <!-- Elegant button style with subtle gradient, hover glow and press feedback -->
                         <Style TargetType="Button">
                             <Setter Property="Margin" Value="6"/>
                             <Setter Property="Padding" Value="16,10"/>
@@ -30,7 +28,6 @@
                                 <Setter.Value>
                                     <ControlTemplate TargetType="Button">
                                         <Grid>
-                                            <!-- Base background with gradient -->
                                             <Border x:Name="Bg" CornerRadius="10" Effect="{StaticResource BtnShadow}">
                                                 <Border.Background>
                                                     <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
@@ -39,8 +36,6 @@
                                                     </LinearGradientBrush>
                                                 </Border.Background>
                                             </Border>
-
-                                            <!-- Soft highlight line at top -->
                                             <Border CornerRadius="10" Opacity="0.18">
                                                 <Border.Background>
                                                     <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
@@ -49,13 +44,9 @@
                                                     </LinearGradientBrush>
                                                 </Border.Background>
                                             </Border>
-
-                                            <!-- Content -->
                                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="8,4"/>
                                         </Grid>
-
                                         <ControlTemplate.Triggers>
-                                            <!-- Hover: lighten and add glow -->
                                             <Trigger Property="IsMouseOver" Value="True">
                                                 <Setter TargetName="Bg" Property="Background">
                                                     <Setter.Value>
@@ -71,8 +62,6 @@
                                                     </Setter.Value>
                                                 </Setter>
                                             </Trigger>
-
-                                            <!-- Press: slight scale and deeper shade -->
                                             <Trigger Property="IsPressed" Value="True">
                                                 <Setter Property="RenderTransform">
                                                     <Setter.Value>
@@ -89,8 +78,6 @@
                                                     </Setter.Value>
                                                 </Setter>
                                             </Trigger>
-
-                                            <!-- Disabled -->
                                             <Trigger Property="IsEnabled" Value="False">
                                                 <Setter Property="Opacity" Value="0.6"/>
                                             </Trigger>
@@ -99,8 +86,6 @@
                                 </Setter.Value>
                             </Setter>
                         </Style>
-
-                        <!-- Primary/accent button style -->
                         <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
                             <Setter Property="Foreground" Value="#FFFFFF"/>
                             <Setter Property="Template">
@@ -157,9 +142,9 @@
                                                     </Setter.Value>
                                                 </Setter>
                                             </Trigger>
-                                            <Setter Property="IsEnabled" Value="False">
+                                            <Trigger Property="IsEnabled" Value="False">
                                                 <Setter Property="Opacity" Value="0.6"/>
-                                            </Setter>
+                                            </Trigger>
                                         </ControlTemplate.Triggers>
                                     </ControlTemplate>
                                 </Setter.Value>
@@ -181,7 +166,6 @@
                             </ContextMenu>
                         </Button.ContextMenu>
                     </Button>
-
                 </StackPanel>
             </DockPanel>
         </Border>
@@ -193,93 +177,28 @@
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Left Sidebar: Pages Thumbnails -->
+            <!-- Left Sidebar: Pages Thumbnails (optional; currently not populated) -->
             <Border Grid.Column="0" Background="#EDF2F7" BorderBrush="#E2E8F0" BorderThickness="0,1,1,0">
                 <DockPanel>
                     <TextBlock Text="Pagini:" FontWeight="SemiBold" Foreground="#2D3748" Padding="12" DockPanel.Dock="Top"/>
-                    <!-- Let ListBox manage its own scrolling and mouse wheel -->
                     <ListBox x:Name="PagesList"
                              SelectionChanged="PagesList_SelectionChanged"
                              ScrollViewer.VerticalScrollBarVisibility="Auto"
-                             ScrollViewer.CanContentScroll="True">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <StackPanel Margin="10" Orientation="Vertical">
-                                    <Border Padding="6" Background="#E3E3E3" BorderBrush="#CBD5E0" BorderThickness="1" CornerRadius="6">
-                                        <Image Source="{Binding Thumbnail}" Stretch="Uniform" Width="240"/>
-                                    </Border>
-                                    <TextBlock Text="{Binding PageNumber, StringFormat=Pagina {0}}"
-                                               Foreground="#4A5568"
-                                               FontSize="12"
-                                               HorizontalAlignment="Center"
-                                               Margin="0,6,0,0"/>
-                                </StackPanel>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
+                             ScrollViewer.CanContentScroll="True"/>
                 </DockPanel>
             </Border>
 
-            <!-- Editor Surface with Zoom + Status Bar -->
+            <!-- Editor Surface with Syncfusion PDF Viewer + Ink overlay -->
             <Border Grid.Column="1" Margin="10" Background="#F5F5F5" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8">
-                <DockPanel>
-                    <!-- Bottom Status Bar inside the editor surface -->
-                    <StatusBar DockPanel.Dock="Bottom" Background="#EDF2F7" BorderBrush="#E2E8F0" BorderThickness="1,1,0,0">
-                        <StatusBarItem>
-                            <TextBlock Text="Zoom:" Margin="6,0"/>
-                        </StatusBarItem>
-                        <StatusBarItem>
-                            <ComboBox x:Name="ZoomCombo"
-                                      Width="100"
-                                      SelectedValuePath="Tag"
-                                      SelectionChanged="ZoomCombo_SelectionChanged">
-                                <ComboBoxItem Content="50%" Tag="0.5"/>
-                                <ComboBoxItem Content="75%" Tag="0.75"/>
-                                <ComboBoxItem Content="100%" Tag="1"/>
-                                <ComboBoxItem Content="125%" Tag="1.25"/>
-                                <ComboBoxItem Content="150%" Tag="1.5"/>
-                                <ComboBoxItem Content="200%" Tag="2"/>
-                            </ComboBox>
-                        </StatusBarItem>
-                        <StatusBarItem>
-                            <Button Content="Actual size 1:1" Click="ActualSize_Click"/>
-                        </StatusBarItem>
-                        <StatusBarItem>
-                            <Button Content="Fit to width" Click="FitToWidth_Click"/>
-                        </StatusBarItem>
-                        <StatusBarItem>
-                            <Button Content="Best fit" Click="BestFit_Click"/>
-                        </StatusBarItem>
-                        <StatusBarItem>
-                            <TextBlock x:Name="PageSizeText" Margin="12,0,0,0"/>
-                        </StatusBarItem>
-                    </StatusBar>
+                <Grid x:Name="ContainerGrid">
+                    <!-- Syncfusion PDF Viewer -->
+                    <sf:PdfViewerControl x:Name="pdfViewer" />
 
-                    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-                        <!-- Shared transform ensures Pdf + InkCanvas scale together -->
-                        <Grid x:Name="ContainerGrid" Margin="10">
-                            <Grid.RenderTransform>
-                                <ScaleTransform x:Name="ZoomTransform" ScaleX="1" ScaleY="1"/>
-                            </Grid.RenderTransform>
-
-                            <!-- Center the PDF image -->
-                            <Image x:Name="PdfDisplayImage"
-                                   Stretch="None"
-                                   HorizontalAlignment="Center"
-                                   VerticalAlignment="Center"/>
-
-                            <!-- Center the InkCanvas and match the image size -->
-                            <InkCanvas x:Name="EraserCanvas"
-                                       Background="Transparent"
-                                       EditingMode="None"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"
-                                       IsHitTestVisible="True"
-                                       Width="{Binding ElementName=PdfDisplayImage, Path=ActualWidth}"
-                                       Height="{Binding ElementName=PdfDisplayImage, Path=ActualHeight}"/>
-                        </Grid>
-                    </ScrollViewer>
-                </DockPanel>
+                    <!-- Ink overlay used as "eraser" (white pen) -->
+                    <InkCanvas x:Name="EraserCanvas"
+                               Background="Transparent"
+                               IsHitTestVisible="True"/>
+                </Grid>
             </Border>
         </Grid>
     </DockPanel>
